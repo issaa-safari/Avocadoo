@@ -1,0 +1,149 @@
+erDiagram
+    ORGANIZATIONS ||--o{ ORG_USERS : has
+    ORGANIZATIONS ||--|| ORG_SETTINGS : configures
+    ORGANIZATIONS ||--o{ SECURITY_AUDIT_LOG : records
+    ORGANIZATIONS ||--o{ SUPPLIERS : owns
+    ORGANIZATIONS ||--o{ FARMS : owns
+    ORGANIZATIONS ||--o{ INTAKE_BATCHES : owns
+
+    SUPPLIERS ||--o{ FARMERS : aggregates
+    FARMS ||--o{ FARMERS : located_at
+    FARMS }o--|| REGIONS : in
+
+    SUPPLIERS ||--o{ INTAKE_BATCHES : supplies
+    FARMERS ||--o{ INTAKE_BATCHES : delivers
+    FARMS ||--o{ INTAKE_BATCHES : sourced_from
+
+    INTAKE_BATCHES ||--o{ QC_REPORTS : inspected_by
+    INTAKE_BATCHES ||--o{ PROCESSING_RUNS : processed_as
+    INTAKE_BATCHES ||--o{ BOX_SOURCE_INTAKES : contributes_to
+
+    PROCESSING_RUNS ||--o{ PACKED_UNITS : produces
+    PROCESSING_RUNS ||--|| RECONCILIATION_RECORDS : reconciled_by
+    PROCESSING_RUNS ||--o{ SUPPLIER_RETURNS : rejects_returned
+    PROCESSING_RUNS ||--o{ PALLET_RUN_CONTENTS : loaded_onto
+
+    PACKED_UNITS ||--o{ BOX_SOURCE_INTAKES : traced_via
+    COMMODITY_LOSS_TOLERANCES ||--o{ RECONCILIATION_RECORDS : governs
+    RECONCILIATION_RECORDS ||--o| SUPPLIER_RETURNS : resolves
+
+    PALLETS ||--o{ PALLET_RUN_CONTENTS : contains
+    PALLETS ||--o{ PALLET_SPLIT_LOG : split_into
+    COLD_ROOMS ||--o{ COLD_STORAGE_LOGS : logs
+    PALLETS }o--|| COLD_ROOMS : stored_in
+
+    EXPORTER_ORDERS ||--o{ BUCKET_LIST_ITEMS : fulfilled_by
+    EXPORTER_ORDERS ||--|| PACKING_LISTS : produces
+    CONSIGNEES ||--o{ EXPORTER_ORDERS : places
+
+    PACKING_LISTS ||--o{ PACKING_LIST_LINES : itemized_as
+    PACKING_LISTS ||--|| CONTAINER_LOADS : loaded_as
+    PALLETS ||--o{ PACKING_LIST_LINES : listed_on
+
+    CONTAINER_LOADS ||--o{ CONTAINER_TEMP_LOGS : monitored_by
+    CONTAINER_LOADS ||--o| RECEIVING_CONFIRMATIONS : confirmed_by
+    CONTAINER_LOADS ||--o{ SHIPMENT_DOCUMENTS : attached
+    CONTAINER_LOADS ||--o{ CLAIMS : disputed_via
+
+    CLAIMS ||--|| TRACE_SNAPSHOTS : freezes
+
+    STAGE_PHOTOS }o--|| INTAKE_BATCHES : evidence_for
+    STAGE_PHOTOS }o--|| QC_REPORTS : evidence_for
+    STAGE_PHOTOS }o--|| PROCESSING_RUNS : evidence_for
+    STAGE_PHOTOS }o--|| PALLETS : evidence_for
+    STAGE_PHOTOS }o--|| CONTAINER_LOADS : evidence_for
+    STAGE_PHOTOS }o--|| SUPPLIER_RETURNS : evidence_for
+
+    SUPPLIER_PERFORMANCE_SUMMARY }o--|| SUPPLIERS : scores
+    AUDIT_LOG }o--|| ORGANIZATIONS : tracks
+
+    ORGANIZATIONS {
+        uuid org_id PK
+        string company_name
+        string logo_url
+        string brand_primary_color
+        string subdomain
+        string subscription_status
+        string default_timezone
+        string data_region
+    }
+    INTAKE_BATCHES {
+        uuid intake_id PK
+        uuid org_id FK
+        uuid supplier_id FK
+        uuid farmer_id FK
+        uuid farm_id FK
+        date harvest_date
+        datetime arrival_datetime
+        string variety
+        decimal gross_weight_kg
+        int bin_count
+        decimal field_temp_c
+    }
+    PROCESSING_RUNS {
+        uuid run_id PK
+        uuid org_id FK
+        uuid intake_id FK
+        string packing_method
+        int wash_line_id
+        decimal sanitizer_ppm
+        decimal ph
+        decimal qty_received_kg
+        decimal qty_packed_kg
+        decimal qty_rejected_kg
+        json output_size_breakdown_json
+        datetime opened_at
+        datetime closed_at
+    }
+    RECONCILIATION_RECORDS {
+        uuid reconciliation_id PK
+        uuid org_id FK
+        uuid run_id FK
+        decimal qty_received_kg
+        decimal qty_packed_kg
+        decimal qty_rejected_kg
+        decimal expected_loss_kg
+        decimal actual_loss_kg
+        decimal variance_kg
+        string status
+        string rejection_disposition
+    }
+    PALLET_RUN_CONTENTS {
+        uuid id PK
+        uuid org_id FK
+        uuid sscc_id FK
+        uuid run_id FK
+        int box_count
+        string size_grade
+        decimal total_weight_kg
+    }
+    CONTAINER_LOADS {
+        uuid container_id PK
+        uuid org_id FK
+        uuid packing_list_id FK
+        string seal_number
+        uuid seal_photo_id FK
+        decimal loading_temp_probe_1_c
+        decimal loading_temp_probe_2_c
+        datetime loading_datetime
+        string loaded_by
+        string checked_by
+    }
+    CLAIMS {
+        uuid claim_id PK
+        uuid org_id FK
+        uuid container_id FK
+        uuid consignee_id FK
+        string claim_type
+        decimal claimed_amount
+        string status
+    }
+    STAGE_PHOTOS {
+        uuid photo_id PK
+        uuid org_id FK
+        string reference_type
+        uuid reference_id
+        string photo_url
+        string caption
+        datetime taken_datetime
+    }
