@@ -33,7 +33,18 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh the session if expired. Required for Server Components, which
   // cannot write cookies themselves.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const publicPaths = ["/login", "/signup", "/auth"];
+  const isPublicPath = publicPaths.some((path) => request.nextUrl.pathname.startsWith(path));
+
+  if (!user && !isPublicPath) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }
