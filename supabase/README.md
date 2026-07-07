@@ -100,3 +100,30 @@ End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, 
 - Live two-org isolation, fixtures deleted after: Org A logged approve-without-photo (allowed) and reject-with-photo (allowed, `stage_photos` row landed); reject-without-photo blocked by the RPC; Org A blocked from logging against Org B's run ("Run not found" — no existence leak); direct `insert into qc_checks` blocked by RLS (no insert policy exists); Org B saw zero of Org A's checks even filtering by Org A's `org_id`; anon saw zero rows.
 - Browser test with a **real photo upload**: approve without photo logged and tally updated; switching to reject with no photo disabled the submit button with an inline warning; attaching a PNG re-enabled it; the reject logged, the tally and history updated, and the file verifiably landed in the `stage-photos` bucket at the org-prefixed path with its `stage_photos` metadata row linked to the check.
 - Cleanup note: one orphaned 70-byte test PNG remains in the `stage-photos` bucket — storage objects can't be deleted via SQL and the storage policies deliberately grant no delete (evidence immutability), so removing it needs the Dashboard (Storage → stage-photos) or the service_role key. All table/auth fixtures were fully deleted.
+
+---
+
+# Phase 2 — Epic 4: Palletization & Cold Storage (PALLET-001, PALLET-002, COLD-001)
+
+**Status: built and compiled, NOT yet applied to a live project.** The Supabase MCP connector in this session pointed at a different project ("Safari-duplicate", a tours app — not the packhouse database), so applying was deliberately skipped per your instruction to apply the migrations yourself later.
+
+## To apply (in order), then finish up
+
+1. `20260707000001_epic4_palletization_schema.sql` — `cold_rooms`, `pallets`, `pallet_split_log`, `pallet_run_contents`, `cold_storage_logs`. Same composite-FK (`org_id, x_id`) defense-in-depth pattern as Epics 1–3.
+2. `20260707000002_epic4_rls_policies.sql` — org-scoped policies: `cold_rooms` full CRUD (admin config); `pallets` select/insert/update (no delete); `pallet_run_contents`, `pallet_split_log`, `cold_storage_logs` select/insert only (immutable — the plan's immutability rule explicitly lists pallet contents).
+3. Regenerate `src/lib/supabase/database.types.ts` from the live project — the Epic 4 table types are currently hand-added (flagged in the file's header comment) and should be replaced by the generated ones.
+4. Run `get_advisors` (security) and the live two-org isolation check, mirroring `tests/epic4_rls_isolation_test.sql` (also runnable locally via `supabase test db`).
+
+## Design decisions to know about
+
+- **SSCC (Open Item, plan §14 — flagged, not decided):** GS1 SSCC vs internal IDs is still a stakeholder decision. The PK is a non-sequential UUID per the security rules; `pallet_code` (e.g. `PLT-3F9A21BC`, random, non-sequential) is the human-readable floor label; a nullable `sscc` column is reserved so real GS1 codes can be backfilled with no schema change once decided.
+- **Split model (PALLET-002):** a split never edits the original pallet's content rows (immutability). It creates a `pallet_split_log` event plus new `pallet_run_contents` rows on the new pallet tagged with `split_id`. Current contents of the original = its rows minus rows moved out via its splits; both fragments keep composite-FK lineage to the same source runs, and the trace stays intact across chained splits.
+- **Run availability accounting:** boxes available to palletize per run/size = `packed_units` total minus `pallet_run_contents` rows **where `split_id` is null** — split rows are relocations of already-palletized boxes, not new allocations, so they don't double-count against the run.
+- **RECON-001 guard:** the add-to-pallet action refuses runs whose latest reconciliation record is `flagged` (today a run can only close as `within_tolerance` or `manager_override`, so this guards the future path where a flagged reconciliation exists without an override).
+- Weight is auto-computed (PALLET-001 AC) from the run's actual per-box net weights, not typed in.
+
+## App layer built alongside this schema
+
+- `/pallets` — pallet list + start-a-new-pallet (optional cold room). `/pallets/[palletId]` — add-from-run by count/size (only runs with unpalletized boxes are offered), per-run contribution % on blended pallets, close pallet (blocked when empty), printable summary label (farmer/supplier + size mix), cold-room assignment, split form (closed pallets only) and split history in both directions.
+- `/cold-storage` — cold room CRUD, manual temperature/humidity logging, and history filterable by cold room and date range (COLD-001 AC), plus a pallets-stored count per room.
+- Not yet browser-tested end-to-end — do that after applying the migrations (the flows to walk: build → close → split; log temps → filter history).

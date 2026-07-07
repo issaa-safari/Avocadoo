@@ -1,6 +1,11 @@
 // Generated from the live Supabase project (yuakvjrcbielrcknfnrt) via
 // mcp__Supabase__generate_typescript_types. Regenerate after schema changes
 // rather than hand-editing.
+//
+// Exception: the Epic 4 tables (cold_rooms, cold_storage_logs, pallets,
+// pallet_run_contents, pallet_split_log) are hand-added pending the Epic 4
+// migrations being applied to the live project — regenerate to replace them
+// once that happens.
 
 export type Json =
   | string
@@ -49,6 +54,86 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "commodity_loss_tolerances_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      cold_rooms: {
+        Row: {
+          cold_room_id: string
+          created_at: string
+          name: string
+          org_id: string
+          target_temp_c: number | null
+        }
+        Insert: {
+          cold_room_id?: string
+          created_at?: string
+          name: string
+          org_id: string
+          target_temp_c?: number | null
+        }
+        Update: {
+          cold_room_id?: string
+          created_at?: string
+          name?: string
+          org_id?: string
+          target_temp_c?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cold_rooms_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      cold_storage_logs: {
+        Row: {
+          cold_room_id: string
+          humidity_pct: number | null
+          log_id: string
+          org_id: string
+          recorded_at: string
+          recorded_by: string | null
+          source: string
+          temp_c: number
+        }
+        Insert: {
+          cold_room_id: string
+          humidity_pct?: number | null
+          log_id?: string
+          org_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source?: string
+          temp_c: number
+        }
+        Update: {
+          cold_room_id?: string
+          humidity_pct?: number | null
+          log_id?: string
+          org_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source?: string
+          temp_c?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cold_storage_logs_org_id_cold_room_id_fkey"
+            columns: ["org_id", "cold_room_id"]
+            isOneToOne: false
+            referencedRelation: "cold_rooms"
+            referencedColumns: ["org_id", "cold_room_id"]
+          },
+          {
+            foreignKeyName: "cold_storage_logs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -359,6 +444,177 @@ export type Database = {
           subscription_status?: string
         }
         Relationships: []
+      }
+      pallet_run_contents: {
+        Row: {
+          added_by: string | null
+          box_count: number
+          content_id: string
+          created_at: string
+          org_id: string
+          pallet_id: string
+          run_id: string
+          size_grade: string
+          split_id: string | null
+          total_weight_kg: number
+        }
+        Insert: {
+          added_by?: string | null
+          box_count: number
+          content_id?: string
+          created_at?: string
+          org_id: string
+          pallet_id: string
+          run_id: string
+          size_grade: string
+          split_id?: string | null
+          total_weight_kg: number
+        }
+        Update: {
+          added_by?: string | null
+          box_count?: number
+          content_id?: string
+          created_at?: string
+          org_id?: string
+          pallet_id?: string
+          run_id?: string
+          size_grade?: string
+          split_id?: string | null
+          total_weight_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallet_run_contents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "pallet_run_contents_org_id_pallet_id_fkey"
+            columns: ["org_id", "pallet_id"]
+            isOneToOne: false
+            referencedRelation: "pallets"
+            referencedColumns: ["org_id", "pallet_id"]
+          },
+          {
+            foreignKeyName: "pallet_run_contents_org_id_run_id_fkey"
+            columns: ["org_id", "run_id"]
+            isOneToOne: false
+            referencedRelation: "processing_runs"
+            referencedColumns: ["org_id", "run_id"]
+          },
+          {
+            foreignKeyName: "pallet_run_contents_org_id_split_id_fkey"
+            columns: ["org_id", "split_id"]
+            isOneToOne: false
+            referencedRelation: "pallet_split_log"
+            referencedColumns: ["org_id", "split_id"]
+          },
+        ]
+      }
+      pallet_split_log: {
+        Row: {
+          new_pallet_id: string
+          org_id: string
+          original_pallet_id: string
+          reason: string
+          split_by: string | null
+          split_datetime: string
+          split_id: string
+        }
+        Insert: {
+          new_pallet_id: string
+          org_id: string
+          original_pallet_id: string
+          reason: string
+          split_by?: string | null
+          split_datetime?: string
+          split_id?: string
+        }
+        Update: {
+          new_pallet_id?: string
+          org_id?: string
+          original_pallet_id?: string
+          reason?: string
+          split_by?: string | null
+          split_datetime?: string
+          split_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallet_split_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "pallet_split_log_org_id_new_pallet_id_fkey"
+            columns: ["org_id", "new_pallet_id"]
+            isOneToOne: false
+            referencedRelation: "pallets"
+            referencedColumns: ["org_id", "pallet_id"]
+          },
+          {
+            foreignKeyName: "pallet_split_log_org_id_original_pallet_id_fkey"
+            columns: ["org_id", "original_pallet_id"]
+            isOneToOne: false
+            referencedRelation: "pallets"
+            referencedColumns: ["org_id", "pallet_id"]
+          },
+        ]
+      }
+      pallets: {
+        Row: {
+          build_datetime: string
+          built_by: string | null
+          closed_at: string | null
+          cold_room_id: string | null
+          org_id: string
+          pallet_code: string
+          pallet_id: string
+          sscc: string | null
+          status: string
+        }
+        Insert: {
+          build_datetime?: string
+          built_by?: string | null
+          closed_at?: string | null
+          cold_room_id?: string | null
+          org_id: string
+          pallet_code?: string
+          pallet_id?: string
+          sscc?: string | null
+          status?: string
+        }
+        Update: {
+          build_datetime?: string
+          built_by?: string | null
+          closed_at?: string | null
+          cold_room_id?: string | null
+          org_id?: string
+          pallet_code?: string
+          pallet_id?: string
+          sscc?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pallets_org_id_cold_room_id_fkey"
+            columns: ["org_id", "cold_room_id"]
+            isOneToOne: false
+            referencedRelation: "cold_rooms"
+            referencedColumns: ["org_id", "cold_room_id"]
+          },
+          {
+            foreignKeyName: "pallets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+        ]
       }
       packed_units: {
         Row: {
