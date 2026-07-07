@@ -414,6 +414,54 @@ export type Database = {
           },
         ]
       }
+      qc_checks: {
+        Row: {
+          created_at: string
+          defects: string[]
+          disposition: string
+          inspector_id: string | null
+          notes: string | null
+          org_id: string
+          qc_check_id: string
+          run_id: string
+        }
+        Insert: {
+          created_at?: string
+          defects?: string[]
+          disposition: string
+          inspector_id?: string | null
+          notes?: string | null
+          org_id: string
+          qc_check_id?: string
+          run_id: string
+        }
+        Update: {
+          created_at?: string
+          defects?: string[]
+          disposition?: string
+          inspector_id?: string | null
+          notes?: string | null
+          org_id?: string
+          qc_check_id?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qc_checks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "qc_checks_org_id_run_id_fkey"
+            columns: ["org_id", "run_id"]
+            isOneToOne: false
+            referencedRelation: "processing_runs"
+            referencedColumns: ["org_id", "run_id"]
+          },
+        ]
+      }
       processing_runs: {
         Row: {
           closed_at: string | null
@@ -783,6 +831,16 @@ export type Database = {
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["org_role"]
+      }
+      log_qc_check: {
+        Args: {
+          p_defects?: string[]
+          p_disposition: string
+          p_notes?: string
+          p_photo_urls?: string[]
+          p_run_id: string
+        }
+        Returns: string
       }
       log_security_event: {
         Args: {

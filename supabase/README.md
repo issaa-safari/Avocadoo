@@ -76,3 +76,28 @@ End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, 
 **One real bug the test caught and got fixed**: the "Open run" form (and the machine bulk-entry form) used plain server-action forms with no client-side error handling, so hitting the one-active-run-per-station constraint crashed to a raw 500 instead of showing an inline message. Converted both to `useActionState`/try-catch client components, matching the pattern already used by login/signup/close-run. Confirmed fixed by rerunning the same test and checking no uncaught page error was thrown.
 
 **Known follow-up, not yet done:** the master-data forms from Epic 1 (suppliers/farms/farmers) still use plain server-action forms without client-side error handling — lower risk since they don't hit any real unique-constraint collisions in normal use, but worth the same treatment eventually for consistency.
+
+---
+
+# Phase 1 — Epic 2: QC Inspection (QC-001, QC-002)
+
+**Status: written and repo-committed, ⚠ NOT YET APPLIED to the live project.** The Supabase MCP connection lost authorization mid-session (permission-denied on every call) and needs re-authorizing (claude.ai → Settings → Connectors → Supabase → reconnect). Nothing was partially applied — both migrations below are pending in full.
+
+14. `20260704000001_epic2_qc_checks_schema.sql` — `qc_checks`, tied to `run_id` per the wireframe's active-run-aware design. **No insert policy on the table at all**: writes go exclusively through the `log_qc_check()` SECURITY DEFINER RPC (same pattern as `security_audit_log`), because QC-002's AC demands the mandatory-photo rule for hold/reject be enforced *server-side* — a plain insert policy would let any client bypass it via direct PostgREST writes. The RPC inserts the check and its `stage_photos` rows in one transaction, rejects photo-less hold/reject, rejects checks against closed runs or other orgs' runs, and resolves `org_id`/`inspector_id` server-side.
+15. `20260704000002_epic2_stage_photos_storage.sql` — private `stage-photos` Storage bucket. Object paths are `{org_id}/{reference_type}/{reference_id}/{filename}` and the `storage.objects` policies key on the first path segment matching `current_org_id()` — the same tenant-isolation rule applied to files. Select+insert only (evidence is never edited/deleted).
+
+`tests/epic2_qc_rls_isolation_test.sql` covers: approve without photo succeeds, reject without photo throws, reject with photo succeeds and lands the `stage_photos` row, cross-org run rejected, direct table insert blocked by RLS, anon sees zero rows.
+
+## App layer (built, compiles, not yet browser-tested)
+
+- `/qc` — active-run selector (station · farmer chips), defect checklist, approve/hold/reject disposition, photo upload, notes, per-run tally and check history. Submit is disabled client-side when hold/reject has no photo (QC-001 AC), *and* the server action re-checks, *and* the RPC re-checks — three layers.
+- `src/app/(app)/qc/actions.ts` uploads photos to the `stage-photos` bucket under the org's path prefix, then calls `log_qc_check()` with the storage paths.
+- `qc_checks` + `log_qc_check` were **hand-added to `database.types.ts`** in the generated style because the type generator needs the MCP connection — regenerate and diff once the connection is back.
+
+## To finish Epic 2 once the Supabase connection is re-authorized
+
+1. `apply_migration` for the two migration files above, in order.
+2. `get_advisors` (security) — expect one new acceptable warning for `log_qc_check` being callable by `authenticated`, same class as the existing five.
+3. Regenerate `database.types.ts` and confirm it matches the hand-added entries.
+4. Live two-org isolation check on `qc_checks` + storage paths, fixtures deleted after.
+5. Browser test: approve without photo, reject blocked without photo, reject with real photo upload, tally updates. Clean up after.
