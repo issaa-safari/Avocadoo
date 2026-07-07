@@ -18,6 +18,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      commodity_loss_tolerances: {
+        Row: {
+          created_at: string
+          effective_date: string
+          loss_type: string | null
+          max_loss_pct: number
+          org_id: string
+          tolerance_id: string
+          variety: string
+        }
+        Insert: {
+          created_at?: string
+          effective_date?: string
+          loss_type?: string | null
+          max_loss_pct: number
+          org_id: string
+          tolerance_id?: string
+          variety: string
+        }
+        Update: {
+          created_at?: string
+          effective_date?: string
+          loss_type?: string | null
+          max_loss_pct?: number
+          org_id?: string
+          tolerance_id?: string
+          variety?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commodity_loss_tolerances_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       farmers: {
         Row: {
           created_at: string
@@ -322,6 +360,202 @@ export type Database = {
         }
         Relationships: []
       }
+      packed_units: {
+        Row: {
+          box_count: number
+          box_id: string
+          created_at: string
+          net_weight_kg: number
+          org_id: string
+          pack_date: string
+          packer_id: string | null
+          packing_method: string
+          run_id: string
+          size_grade: string
+        }
+        Insert: {
+          box_count?: number
+          box_id?: string
+          created_at?: string
+          net_weight_kg: number
+          org_id: string
+          pack_date?: string
+          packer_id?: string | null
+          packing_method: string
+          run_id: string
+          size_grade: string
+        }
+        Update: {
+          box_count?: number
+          box_id?: string
+          created_at?: string
+          net_weight_kg?: number
+          org_id?: string
+          pack_date?: string
+          packer_id?: string | null
+          packing_method?: string
+          run_id?: string
+          size_grade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packed_units_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "packed_units_org_id_run_id_fkey"
+            columns: ["org_id", "run_id"]
+            isOneToOne: false
+            referencedRelation: "processing_runs"
+            referencedColumns: ["org_id", "run_id"]
+          },
+        ]
+      }
+      processing_runs: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          intake_id: string
+          opened_at: string
+          opened_by: string | null
+          org_id: string
+          packing_method: string
+          qty_packed_kg: number | null
+          qty_received_kg: number
+          qty_rejected_kg: number | null
+          run_id: string
+          station: string
+          status: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          intake_id: string
+          opened_at?: string
+          opened_by?: string | null
+          org_id: string
+          packing_method: string
+          qty_packed_kg?: number | null
+          qty_received_kg: number
+          qty_rejected_kg?: number | null
+          run_id?: string
+          station: string
+          status?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          intake_id?: string
+          opened_at?: string
+          opened_by?: string | null
+          org_id?: string
+          packing_method?: string
+          qty_packed_kg?: number | null
+          qty_received_kg?: number
+          qty_rejected_kg?: number | null
+          run_id?: string
+          station?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "processing_runs_org_id_intake_id_fkey"
+            columns: ["org_id", "intake_id"]
+            isOneToOne: false
+            referencedRelation: "intake_batches"
+            referencedColumns: ["org_id", "intake_id"]
+          },
+        ]
+      }
+      reconciliation_records: {
+        Row: {
+          actual_loss_kg: number
+          created_at: string
+          expected_loss_kg: number
+          org_id: string
+          override_by: string | null
+          override_datetime: string | null
+          override_reason: string | null
+          qty_packed_kg: number
+          qty_received_kg: number
+          qty_rejected_kg: number
+          reconciliation_id: string
+          rejection_disposition: string | null
+          return_confirmation_id: string | null
+          run_id: string
+          status: string
+          variance_kg: number
+        }
+        Insert: {
+          actual_loss_kg: number
+          created_at?: string
+          expected_loss_kg: number
+          org_id: string
+          override_by?: string | null
+          override_datetime?: string | null
+          override_reason?: string | null
+          qty_packed_kg: number
+          qty_received_kg: number
+          qty_rejected_kg: number
+          reconciliation_id?: string
+          rejection_disposition?: string | null
+          return_confirmation_id?: string | null
+          run_id: string
+          status: string
+          variance_kg: number
+        }
+        Update: {
+          actual_loss_kg?: number
+          created_at?: string
+          expected_loss_kg?: number
+          org_id?: string
+          override_by?: string | null
+          override_datetime?: string | null
+          override_reason?: string | null
+          qty_packed_kg?: number
+          qty_received_kg?: number
+          qty_rejected_kg?: number
+          reconciliation_id?: string
+          rejection_disposition?: string | null
+          return_confirmation_id?: string | null
+          run_id?: string
+          status?: string
+          variance_kg?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_records_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_records_org_id_run_id_fkey"
+            columns: ["org_id", "run_id"]
+            isOneToOne: true
+            referencedRelation: "processing_runs"
+            referencedColumns: ["org_id", "run_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_records_return_confirmation_id_fkey"
+            columns: ["return_confirmation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_returns"
+            referencedColumns: ["return_id"]
+          },
+        ]
+      }
       regions: {
         Row: {
           created_at: string
@@ -433,6 +667,67 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      supplier_returns: {
+        Row: {
+          created_by: string | null
+          intake_id: string
+          org_id: string
+          qty_returned_kg: number
+          rejection_reason_summary: string
+          return_datetime: string
+          return_id: string
+          run_id: string
+          supplier_signoff: string
+          transport_plate_out: string | null
+        }
+        Insert: {
+          created_by?: string | null
+          intake_id: string
+          org_id: string
+          qty_returned_kg: number
+          rejection_reason_summary: string
+          return_datetime?: string
+          return_id?: string
+          run_id: string
+          supplier_signoff: string
+          transport_plate_out?: string | null
+        }
+        Update: {
+          created_by?: string | null
+          intake_id?: string
+          org_id?: string
+          qty_returned_kg?: number
+          rejection_reason_summary?: string
+          return_datetime?: string
+          return_id?: string
+          run_id?: string
+          supplier_signoff?: string
+          transport_plate_out?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_returns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["org_id"]
+          },
+          {
+            foreignKeyName: "supplier_returns_org_id_intake_id_fkey"
+            columns: ["org_id", "intake_id"]
+            isOneToOne: false
+            referencedRelation: "intake_batches"
+            referencedColumns: ["org_id", "intake_id"]
+          },
+          {
+            foreignKeyName: "supplier_returns_org_id_run_id_fkey"
+            columns: ["org_id", "run_id"]
+            isOneToOne: false
+            referencedRelation: "processing_runs"
+            referencedColumns: ["org_id", "run_id"]
           },
         ]
       }

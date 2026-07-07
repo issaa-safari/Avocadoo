@@ -50,3 +50,29 @@ Isolation re-verified the same way as Phase 0: two-org fixtures inserted live, a
 - End-to-end tested live in a real browser (Playwright): signup → org auto-provisioning → create supplier/region/farm/farmer → log an intake with the supplier-filtered farmer dropdown and farm auto-fill → dashboard counts update → sign-out correctly blocks the protected routes. All test fixtures were deleted from the live project afterward.
 
 **Why Server Actions instead of client-side Supabase Auth calls:** this sandboxed environment's headless browser can't complete TLS with the outbound proxy for direct browser→Supabase calls (a testing-environment limitation, not a Supabase issue). Rather than route around it, auth was moved server-side entirely — which also keeps every Supabase Auth call server-side, consistent with the "org_id resolved server-side" posture elsewhere in this codebase.
+
+---
+
+# Phase 1 — Epic 3: Processing, Runs & Mass Balance (RUN-001/002/003, RECON-001/002/003)
+
+**Status: applied to the live project.** Built ahead of Epic 2 (QC) because QC screens are explicitly "active-run aware" per the wireframes — QC needs a run to attach to, so Run Control is the actual dependency root, not Epic numbering.
+
+10. `20260703000001_intake_batches_add_org_composite_unique.sql` — adds `unique (org_id, intake_id)` to `intake_batches`, needed so `processing_runs` can use a composite FK into it (missed when Epic 1 shipped since nothing referenced `intake_batches` yet).
+11. `20260703000002_epic3_processing_runs_schema.sql` — `processing_runs`, `packed_units`. A **partial unique index** `(org_id, station) where status = 'active'` is the actual enforcement of "a table cannot have two active runs" (RUN-001) — not just an app-layer check. `packed_units.box_count` lets one row represent either a single hand-pack tap (`box_count = 1`) or a machine-line bulk entry (`box_count = N`).
+12. `20260703000003_epic3_reconciliation_schema.sql` — `commodity_loss_tolerances`, `reconciliation_records`, `supplier_returns`. All the cross-references (`run_id`, `intake_id`) use composite `(org_id, x_id)` FKs, same pattern as Epic 1.
+13. `20260703000004_epic3_rls_policies.sql` — `reconciliation_records`/`supplier_returns` get select+insert only (no update/delete) — they're immutable evidentiary records per the plan's "corrections create new linked records, never overwrite" rule. `packed_units` is select+insert only too (append-only per tap). `processing_runs` gets update as well, since closing a run updates its own row.
+
+Isolation re-verified the same live two-org-fixture way as Phase 0/Epic 1 — Org A saw only its own run/packed_units/reconciliation/return rows, anon got zero rows from every table. Mirrored in `tests/epic3_rls_isolation_test.sql`.
+
+## App layer built alongside this schema
+
+- `/runs` — Run Control: lists active runs by station, opens a new run against a batch (batch, station, hand/machine, qty received).
+- `/runs/[runId]` — hand-pack tap buttons (one tap = one box, per the non-negotiable no-scanning constraint) or machine-line bulk entry by size, depending on the run's method. Shows the running box tally by size.
+- `/runs/[runId]/close` — the actual mass-balance defense: enters rejected kg, computes `A (received) = B (packed) + C (rejected) + D (loss)` against `commodity_loss_tolerances` (2% fallback if none configured for that variety), flags out-of-tolerance runs and requires a documented override reason to close anyway, and requires a supplier-return sub-record (reason + signoff) before a run with any rejects can close at all (RECON-002).
+- Receiving page gained a batch-level reconciliation badge (RECON-003): once every run against a batch is closed, `sum(qty_received_kg)` across those runs is checked against the batch's `gross_weight_kg`.
+
+End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, closed within tolerance; opened a second run on the *same* station (proving the partial unique index correctly scopes to active-only, not all-time) with machine bulk entry, closed it with a large reject (correctly flagged, correctly blocked until the supplier-return + override fields were filled), confirmed the batch rollup badge, and confirmed a second concurrent run on the same station is blocked. All fixtures deleted from the live project afterward.
+
+**One real bug the test caught and got fixed**: the "Open run" form (and the machine bulk-entry form) used plain server-action forms with no client-side error handling, so hitting the one-active-run-per-station constraint crashed to a raw 500 instead of showing an inline message. Converted both to `useActionState`/try-catch client components, matching the pattern already used by login/signup/close-run. Confirmed fixed by rerunning the same test and checking no uncaught page error was thrown.
+
+**Known follow-up, not yet done:** the master-data forms from Epic 1 (suppliers/farms/farmers) still use plain server-action forms without client-side error handling — lower risk since they don't hit any real unique-constraint collisions in normal use, but worth the same treatment eventually for consistency.

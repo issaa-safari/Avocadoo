@@ -30,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav>
           <Link href="/dashboard">Dashboard</Link>
           <Link href="/receiving">Receiving</Link>
+          <Link href="/runs">Run Control</Link>
           <Link href="/suppliers">Suppliers</Link>
           <Link href="/farmers">Farmers</Link>
           <Link href="/farms">Farms</Link>
