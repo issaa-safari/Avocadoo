@@ -1,11 +1,8 @@
 // Generated from the live Supabase project (yuakvjrcbielrcknfnrt) via
 // mcp__Supabase__generate_typescript_types. Regenerate after schema changes
-// rather than hand-editing.
-//
-// Exception: the Epic 4 tables (cold_rooms, cold_storage_logs, pallets,
-// pallet_run_contents, pallet_split_log) are hand-added pending the Epic 4
-// migrations being applied to the live project — regenerate to replace them
-// once that happens.
+// rather than hand-editing. (The Epic 4 entries were re-verified against the
+// generator's output after the Epic 4 migrations were applied live — they
+// matched the interim hand-added ones exactly.)
 
 export type Json =
   | string

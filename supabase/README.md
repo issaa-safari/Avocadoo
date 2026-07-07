@@ -105,14 +105,17 @@ End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, 
 
 # Phase 2 — Epic 4: Palletization & Cold Storage (PALLET-001, PALLET-002, COLD-001)
 
-**Status: built and compiled, NOT yet applied to a live project.** The Supabase MCP connector in this session pointed at a different project ("Safari-duplicate", a tours app — not the packhouse database), so applying was deliberately skipped per your instruction to apply the migrations yourself later.
+**Status: applied to the live project and verified at the database level.** (Built during an interlude where the connector could only see an unrelated project; applied once it was re-pointed at the real "Avocadoo" project.)
 
-## To apply (in order), then finish up
+16. `20260707000001_epic4_palletization_schema.sql` — `cold_rooms`, `pallets`, `pallet_split_log`, `pallet_run_contents`, `cold_storage_logs`. Same composite-FK (`org_id, x_id`) defense-in-depth pattern as Epics 1–3.
+17. `20260707000002_epic4_rls_policies.sql` — org-scoped policies: `cold_rooms` full CRUD (admin config); `pallets` select/insert/update (no delete); `pallet_run_contents`, `pallet_split_log`, `cold_storage_logs` select/insert only (immutable — the plan's immutability rule explicitly lists pallet contents).
 
-1. `20260707000001_epic4_palletization_schema.sql` — `cold_rooms`, `pallets`, `pallet_split_log`, `pallet_run_contents`, `cold_storage_logs`. Same composite-FK (`org_id, x_id`) defense-in-depth pattern as Epics 1–3.
-2. `20260707000002_epic4_rls_policies.sql` — org-scoped policies: `cold_rooms` full CRUD (admin config); `pallets` select/insert/update (no delete); `pallet_run_contents`, `pallet_split_log`, `cold_storage_logs` select/insert only (immutable — the plan's immutability rule explicitly lists pallet contents).
-3. Regenerate `src/lib/supabase/database.types.ts` from the live project — the Epic 4 table types are currently hand-added (flagged in the file's header comment) and should be replaced by the generated ones.
-4. Run `get_advisors` (security) and the live two-org isolation check, mirroring `tests/epic4_rls_isolation_test.sql` (also runnable locally via `supabase test db`).
+## Verification performed after apply
+
+- `get_advisors` (security): only the same seven known-acceptable warnings as after Epic 2 — nothing new from Epic 4, and no missing-RLS findings.
+- Live two-org isolation, fixtures deleted after: Org A saw exactly its own cold room / pallets / content rows / split / temperature log; zero of Org B's pallets even filtering directly by Org B's `org_id`; split lineage intact through the split log; anon got **zero rows** from all five tables; and even the *owning* org could not update a `pallet_run_contents` row or delete a `cold_storage_logs` row (0 rows affected — immutability enforced by the absence of policies, not just app code). Mirrored in `tests/epic4_rls_isolation_test.sql` for CI (`supabase test db`).
+- `database.types.ts` re-verified against the generator's output post-apply — the hand-added Epic 4 entries matched it exactly (note updated in the file's header).
+- **Browser end-to-end not run from this session**: the remote environment's network policy blocks direct egress to `*.supabase.co` and `*.vercel.app` (403 at the proxy), so neither the local production build nor the Vercel preview could be driven by a headless browser here. The Epic 4 commit's Vercel preview built READY (`avocadoo-git-claude-continue-work-qb2y70-kssas-projects.vercel.app`, behind Vercel Authentication — log in as yourself to view). Flows to click through: new pallet → add-from-run (try over-adding to see the availability guard) → close → summary label → split → check both fragments' lineage; cold room → log reading → filter history by room/date → assign a pallet to the room.
 
 ## Design decisions to know about
 
@@ -126,4 +129,3 @@ End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, 
 
 - `/pallets` — pallet list + start-a-new-pallet (optional cold room). `/pallets/[palletId]` — add-from-run by count/size (only runs with unpalletized boxes are offered), per-run contribution % on blended pallets, close pallet (blocked when empty), printable summary label (farmer/supplier + size mix), cold-room assignment, split form (closed pallets only) and split history in both directions.
 - `/cold-storage` — cold room CRUD, manual temperature/humidity logging, and history filterable by cold room and date range (COLD-001 AC), plus a pallets-stored count per room.
-- Not yet browser-tested end-to-end — do that after applying the migrations (the flows to walk: build → close → split; log temps → filter history).
