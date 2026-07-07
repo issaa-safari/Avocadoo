@@ -7,9 +7,13 @@ import { getOrgContext } from "@/lib/auth/org-context";
 const VALID_DISPOSITIONS = ["approve", "hold", "reject"] as const;
 type Disposition = (typeof VALID_DISPOSITIONS)[number];
 
-export async function logQcCheck(formData: FormData) {
+// Returns an error string instead of throwing — thrown server-action error
+// messages are redacted in production builds, so they can never reach the UI.
+export type QcCheckResult = { error: string | null };
+
+export async function logQcCheck(formData: FormData): Promise<QcCheckResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
   const runId = String(formData.get("run_id") ?? "");
   const disposition = String(formData.get("disposition") ?? "") as Disposition;
@@ -19,13 +23,13 @@ export async function logQcCheck(formData: FormData) {
     .getAll("photos")
     .filter((f): f is File => f instanceof File && f.size > 0);
 
-  if (!runId) throw new Error("No run selected");
-  if (!VALID_DISPOSITIONS.includes(disposition)) throw new Error("Invalid disposition");
+  if (!runId) return { error: "No run selected" };
+  if (!VALID_DISPOSITIONS.includes(disposition)) return { error: "Invalid disposition" };
   // Server-side photo rule (QC-002 AC) — also re-enforced inside the
   // log_qc_check RPC itself, so even a caller bypassing this action
   // entirely cannot log a photo-less hold/reject.
   if (disposition !== "approve" && photos.length === 0) {
-    throw new Error("A photo is required for hold/reject dispositions");
+    return { error: "A photo is required for hold/reject dispositions" };
   }
 
   const supabase = await createClient();
@@ -37,7 +41,7 @@ export async function logQcCheck(formData: FormData) {
     const { error: uploadError } = await supabase.storage
       .from("stage-photos")
       .upload(path, photo, { contentType: photo.type || "image/jpeg" });
-    if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`);
+    if (uploadError) return { error: `Photo upload failed: ${uploadError.message}` };
     photoPaths.push(path);
   }
 
@@ -49,6 +53,7 @@ export async function logQcCheck(formData: FormData) {
     p_photo_urls: photoPaths,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/qc");
+  return { error: null };
 }

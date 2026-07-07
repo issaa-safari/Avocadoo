@@ -22,12 +22,12 @@ export function HandPackButtons({ runId }: { runId: string }) {
     formData.set("packing_method", "hand");
 
     startTransition(async () => {
-      try {
-        await logBox(runId, formData);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to log box");
+      const result = await logBox(runId, formData);
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      router.refresh();
     });
   }
 

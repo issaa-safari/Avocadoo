@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvailableBySize, getCurrentContents } from "@/lib/pallets";
 import { AddContentsForm, type AvailableRun } from "./add-contents-form";
 import { SplitPalletForm, type SplitLine } from "./split-pallet-form";
-import { assignColdRoom, closePallet } from "./actions";
+import { ClosePalletButton, ColdRoomForm } from "./pallet-controls";
 
 export default async function PalletDetailPage({ params }: { params: Promise<{ palletId: string }> }) {
   const { palletId } = await params;
@@ -150,44 +150,13 @@ export default async function PalletDetailPage({ params }: { params: Promise<{ p
 
       <div className="card stack">
         <strong>Cold room</strong>
-        <form
-          action={async (formData) => {
-            "use server";
-            await assignColdRoom(palletId, String(formData.get("cold_room_id") ?? ""));
-          }}
-          className="stack"
-        >
-          <div className="field">
-            <select name="cold_room_id" defaultValue={pallet.cold_room_id ?? ""}>
-              <option value="">— not in cold storage —</option>
-              {(coldRooms ?? []).map((c) => (
-                <option key={c.cold_room_id} value={c.cold_room_id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button className="button button-secondary" type="submit">
-            Move
-          </button>
-        </form>
+        <ColdRoomForm palletId={palletId} coldRoomId={pallet.cold_room_id} coldRooms={coldRooms ?? []} />
       </div>
 
       {pallet.status === "open" && (
         <>
           <AddContentsForm palletId={palletId} runs={availableRuns} />
-          {contents.length > 0 && (
-            <form
-              action={async () => {
-                "use server";
-                await closePallet(palletId);
-              }}
-            >
-              <button className="button button-primary" type="submit">
-                Close pallet
-              </button>
-            </form>
-          )}
+          {contents.length > 0 && <ClosePalletButton palletId={palletId} />}
         </>
       )}
 

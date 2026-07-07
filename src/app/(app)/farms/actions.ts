@@ -3,40 +3,53 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/org-context";
+import { friendlyDbError } from "@/lib/db-errors";
 
-export async function createRegion(formData: FormData) {
+export type FarmActionResult = { error: string | null };
+
+export async function createRegion(formData: FormData): Promise<FarmActionResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
+
+  const name = String(formData.get("region_name") ?? "").trim();
+  if (!name) return { error: "Region name is required" };
 
   const supabase = await createClient();
   const { error } = await supabase.from("regions").insert({
     org_id: ctx.orgId,
-    name: String(formData.get("region_name") ?? "").trim(),
+    name,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: friendlyDbError(error, "region") };
   revalidatePath("/farms");
+  return { error: null };
 }
 
-export async function createFarm(formData: FormData) {
+export async function createFarm(formData: FormData): Promise<FarmActionResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const regionId = String(formData.get("region_id") ?? "");
+  if (!name) return { error: "Farm name is required" };
+  if (!regionId) return { error: "Region is required on a farm" };
 
   const supabase = await createClient();
   const { error } = await supabase.from("farms").insert({
     org_id: ctx.orgId,
-    name: String(formData.get("name") ?? "").trim(),
-    region_id: String(formData.get("region_id") ?? ""),
+    name,
+    region_id: regionId,
     block_label: String(formData.get("block_label") ?? "").trim() || null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: friendlyDbError(error, "farm") };
   revalidatePath("/farms");
+  return { error: null };
 }
 
-export async function deleteFarm(farmId: string) {
+export async function deleteFarm(farmId: string): Promise<FarmActionResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -45,6 +58,7 @@ export async function deleteFarm(farmId: string) {
     .eq("farm_id", farmId)
     .eq("org_id", ctx.orgId);
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: friendlyDbError(error, "farm") };
   revalidatePath("/farms");
+  return { error: null };
 }

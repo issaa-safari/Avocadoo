@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { ClientForm } from "@/components/client-form";
+import { ActionButton } from "@/components/action-button";
 import { createFarmer, deleteFarmer } from "./actions";
+import { AssignFarmSelect } from "./assign-farm-select";
 
 export default async function FarmersPage() {
   const supabase = await createClient();
@@ -16,12 +19,11 @@ export default async function FarmersPage() {
     <div className="stack">
       <h1>Farmers</h1>
 
-      <form
-        className="card stack"
-        action={async (formData) => {
-          "use server";
-          await createFarmer(formData);
-        }}
+      <ClientForm
+        action={createFarmer}
+        submitLabel="Add farmer"
+        pendingLabel="Adding…"
+        submitDisabled={(suppliers ?? []).length === 0}
       >
         <div className="field">
           <label htmlFor="name">Farmer name</label>
@@ -41,27 +43,28 @@ export default async function FarmersPage() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="farm_id">Farm (optional)</label>
+          <label htmlFor="farm_id">Farm / block</label>
           <select id="farm_id" name="farm_id" defaultValue="">
-            <option value="">None</option>
+            <option value="">None yet</option>
             {(farms ?? []).map((f) => (
               <option key={f.farm_id} value={f.farm_id}>
                 {f.name}
               </option>
             ))}
           </select>
+          <p className="muted">
+            A farmer without a farm cannot receive deliveries — the intake must trace to a farm. Add farms on
+            the Farms page.
+          </p>
         </div>
         <div className="field">
           <label htmlFor="phone">Phone</label>
           <input id="phone" name="phone" />
         </div>
-        <button className="button button-primary" type="submit" disabled={(suppliers ?? []).length === 0}>
-          Add farmer
-        </button>
         {(suppliers ?? []).length === 0 && (
           <p className="muted">Add a supplier first — every farmer must belong to one.</p>
         )}
-      </form>
+      </ClientForm>
 
       <table className="data-table">
         <thead>
@@ -78,19 +81,16 @@ export default async function FarmersPage() {
             <tr key={f.farmer_id}>
               <td>{f.name}</td>
               <td>{f.suppliers?.name ?? "—"}</td>
-              <td>{f.farms?.name ?? "—"}</td>
+              <td>
+                {f.farms?.name ?? <AssignFarmSelect farmerId={f.farmer_id} farms={farms ?? []} />}
+              </td>
               <td>{f.phone ?? "—"}</td>
               <td>
-                <form
-                  action={async () => {
-                    "use server";
-                    await deleteFarmer(f.farmer_id);
-                  }}
-                >
-                  <button className="button button-secondary" type="submit">
-                    Delete
-                  </button>
-                </form>
+                <ActionButton
+                  action={deleteFarmer.bind(null, f.farmer_id)}
+                  label="Delete"
+                  pendingLabel="Deleting…"
+                />
               </td>
             </tr>
           ))}

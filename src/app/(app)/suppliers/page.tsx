@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { ClientForm } from "@/components/client-form";
+import { ActionButton } from "@/components/action-button";
 import { createSupplier, deleteSupplier } from "./actions";
 
 export default async function SuppliersPage() {
@@ -12,13 +14,7 @@ export default async function SuppliersPage() {
     <div className="stack">
       <h1>Suppliers</h1>
 
-      <form
-        className="card stack"
-        action={async (formData) => {
-          "use server";
-          await createSupplier(formData);
-        }}
-      >
+      <ClientForm action={createSupplier} submitLabel="Add supplier" pendingLabel="Adding…">
         <div className="field">
           <label htmlFor="name">Supplier name</label>
           <input id="name" name="name" required />
@@ -35,10 +31,7 @@ export default async function SuppliersPage() {
           <label htmlFor="contact_email">Contact email</label>
           <input id="contact_email" name="contact_email" type="email" />
         </div>
-        <button className="button button-primary" type="submit">
-          Add supplier
-        </button>
-      </form>
+      </ClientForm>
 
       <table className="data-table">
         <thead>
@@ -58,16 +51,11 @@ export default async function SuppliersPage() {
               <td>{s.contact_phone ?? "—"}</td>
               <td>{s.contact_email ?? "—"}</td>
               <td>
-                <form
-                  action={async () => {
-                    "use server";
-                    await deleteSupplier(s.supplier_id);
-                  }}
-                >
-                  <button className="button button-secondary" type="submit">
-                    Delete
-                  </button>
-                </form>
+                <ActionButton
+                  action={deleteSupplier.bind(null, s.supplier_id)}
+                  label="Delete"
+                  pendingLabel="Deleting…"
+                />
               </td>
             </tr>
           ))}

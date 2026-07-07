@@ -18,28 +18,27 @@ export function CloseRunForm({ runId }: { runId: string }) {
   function handleCalculate() {
     setError(null);
     startTransition(async () => {
-      try {
-        const result = await previewClose(runId, Number(qtyRejectedKg));
-        setPreview(result);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to calculate reconciliation");
+      const result = await previewClose(runId, Number(qtyRejectedKg));
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      setPreview(result.preview);
     });
   }
 
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
-      try {
-        await confirmClose(runId, {
-          qtyRejectedKg: Number(qtyRejectedKg),
-          returnReason,
-          returnSignoff,
-          returnTransportPlate,
-          overrideReason,
-        });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to close run");
+      const result = await confirmClose(runId, {
+        qtyRejectedKg: Number(qtyRejectedKg),
+        returnReason,
+        returnSignoff,
+        returnTransportPlate,
+        overrideReason,
+      });
+      if (result.error) {
+        setError(result.error);
         return;
       }
       router.push(`/runs/${runId}`);

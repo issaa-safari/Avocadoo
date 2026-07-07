@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { ClientForm } from "@/components/client-form";
+import { ActionButton } from "@/components/action-button";
 import { createFarm, createRegion, deleteFarm } from "./actions";
 
 export default async function FarmsPage() {
@@ -18,29 +20,25 @@ export default async function FarmsPage() {
       <div className="card stack">
         <strong>Quick-add region</strong>
         <p className="muted">Every farm requires a region. Add one here if it isn&apos;t listed yet.</p>
-        <form
-          style={{ display: "flex", gap: "0.6rem" }}
-          action={async (formData) => {
-            "use server";
-            await createRegion(formData);
-          }}
+        <ClientForm
+          action={createRegion}
+          submitLabel="Add region"
+          pendingLabel="Adding…"
+          className="stack"
+          submitClassName="button button-secondary"
         >
-          <input name="region_name" placeholder="Region name" required style={{ flex: 1 }} />
-          <button className="button button-secondary" type="submit">
-            Add region
-          </button>
-        </form>
+          <input name="region_name" placeholder="Region name" required />
+        </ClientForm>
         {(regions ?? []).length > 0 && (
           <p className="muted">Existing: {(regions ?? []).map((r) => r.name).join(", ")}</p>
         )}
       </div>
 
-      <form
-        className="card stack"
-        action={async (formData) => {
-          "use server";
-          await createFarm(formData);
-        }}
+      <ClientForm
+        action={createFarm}
+        submitLabel="Add farm"
+        pendingLabel="Adding…"
+        submitDisabled={(regions ?? []).length === 0}
       >
         <div className="field">
           <label htmlFor="name">Farm name</label>
@@ -63,10 +61,7 @@ export default async function FarmsPage() {
           <label htmlFor="block_label">Block (optional)</label>
           <input id="block_label" name="block_label" placeholder="e.g. Block 3" />
         </div>
-        <button className="button button-primary" type="submit" disabled={(regions ?? []).length === 0}>
-          Add farm
-        </button>
-      </form>
+      </ClientForm>
 
       <table className="data-table">
         <thead>
@@ -84,16 +79,7 @@ export default async function FarmsPage() {
               <td>{f.regions?.name ?? "—"}</td>
               <td>{f.block_label ?? "—"}</td>
               <td>
-                <form
-                  action={async () => {
-                    "use server";
-                    await deleteFarm(f.farm_id);
-                  }}
-                >
-                  <button className="button button-secondary" type="submit">
-                    Delete
-                  </button>
-                </form>
+                <ActionButton action={deleteFarm.bind(null, f.farm_id)} label="Delete" pendingLabel="Deleting…" />
               </td>
             </tr>
           ))}

@@ -12,17 +12,18 @@ export function MachineEntryForm({ runId }: { runId: string }) {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     formData.set("packing_method", "machine");
 
     startTransition(async () => {
-      try {
-        await logBox(runId, formData);
-        router.refresh();
-        e.currentTarget?.reset();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to log boxes");
+      const result = await logBox(runId, formData);
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      router.refresh();
+      form.reset();
     });
   }
 

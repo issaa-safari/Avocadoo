@@ -80,40 +80,46 @@ export async function addRunToPallet(
   return { error: null };
 }
 
-export async function closePallet(palletId: string): Promise<void> {
+export async function closePallet(palletId: string): Promise<PalletActionState> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
-  const pallet = await getOpenPallet(palletId);
-  if (pallet.status !== "open") throw new Error("Pallet is already closed");
+  try {
+    const pallet = await getOpenPallet(palletId);
+    if (pallet.status !== "open") return { error: "Pallet is already closed" };
 
-  const contents = await getCurrentContents(palletId);
-  if (contents.length === 0) throw new Error("Cannot close an empty pallet");
+    const contents = await getCurrentContents(palletId);
+    if (contents.length === 0) return { error: "Cannot close an empty pallet" };
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("pallets")
-    .update({ status: "closed", closed_at: new Date().toISOString() })
-    .eq("pallet_id", palletId);
-  if (error) throw new Error(error.message);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("pallets")
+      .update({ status: "closed", closed_at: new Date().toISOString() })
+      .eq("pallet_id", palletId);
+    if (error) return { error: error.message };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to close pallet" };
+  }
 
   revalidatePath(`/pallets/${palletId}`);
   revalidatePath("/pallets");
+  return { error: null };
 }
 
-export async function assignColdRoom(palletId: string, coldRoomId: string): Promise<void> {
+export async function assignColdRoom(palletId: string, coldRoomId: string): Promise<PalletActionState> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("pallets")
     .update({ cold_room_id: coldRoomId || null })
     .eq("pallet_id", palletId);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   revalidatePath(`/pallets/${palletId}`);
   revalidatePath("/pallets");
+  return { error: null };
 }
 
 export async function splitPallet(

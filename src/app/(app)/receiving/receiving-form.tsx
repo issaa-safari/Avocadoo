@@ -30,17 +30,19 @@ export function ReceivingForm({
   );
   const selectedFarmer = filteredFarmers.find((f) => f.farmer_id === farmerId);
 
+  const farmerHasNoFarm = !!selectedFarmer && !selectedFarmer.farm_id;
+
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      try {
-        await createIntakeBatch(formData);
-        setSupplierId("");
-        setFarmerId("");
-        (document.getElementById("receiving-form") as HTMLFormElement | null)?.reset();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to save intake");
+      const result = await createIntakeBatch(formData);
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      setSupplierId("");
+      setFarmerId("");
+      (document.getElementById("receiving-form") as HTMLFormElement | null)?.reset();
     });
   }
 
@@ -92,8 +94,22 @@ export function ReceivingForm({
 
       <div className="field">
         <label>Farm / block</label>
-        <input value={selectedFarmer?.farms?.name ?? "(auto from farmer)"} disabled readOnly />
+        <input
+          value={
+            selectedFarmer
+              ? selectedFarmer.farms?.name ?? "No farm on file for this farmer"
+              : "(auto from farmer)"
+          }
+          disabled
+          readOnly
+        />
         <input type="hidden" name="farm_id" value={selectedFarmer?.farm_id ?? ""} />
+        {farmerHasNoFarm && (
+          <p className="error-text">
+            This farmer has no farm/block on file — add one on the Farmers page before logging a delivery,
+            so the intake stays traceable to a farm.
+          </p>
+        )}
       </div>
 
       <div className="field">
@@ -133,7 +149,11 @@ export function ReceivingForm({
         <p className="error-text">Selected farmer is no longer valid — please reselect.</p>
       )}
 
-      <button className="button button-primary" type="submit" disabled={isPending || !farmerId}>
+      <button
+        className="button button-primary"
+        type="submit"
+        disabled={isPending || !farmerId || farmerHasNoFarm}
+      >
         {isPending ? "Saving…" : "Save intake"}
       </button>
     </form>

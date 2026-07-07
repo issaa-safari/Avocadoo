@@ -22,16 +22,16 @@ export function QcCheckForm({ runId }: { runId: string }) {
     setError(null);
     setSuccess(null);
     startTransition(async () => {
-      try {
-        await logQcCheck(formData);
-        setSuccess(`${disposition === "approve" ? "Approve" : disposition === "hold" ? "Hold" : "Reject"} check logged.`);
-        formRef.current?.reset();
-        setDisposition("approve");
-        setPhotoCount(0);
-        router.refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to log check");
+      const result = await logQcCheck(formData);
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+      setSuccess(`${disposition === "approve" ? "Approve" : disposition === "hold" ? "Hold" : "Reject"} check logged.`);
+      formRef.current?.reset();
+      setDisposition("approve");
+      setPhotoCount(0);
+      router.refresh();
     });
   }
 

@@ -4,20 +4,32 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/org-context";
 
-export async function createIntakeBatch(formData: FormData) {
+// Server actions RETURN error strings instead of throwing: Next.js redacts
+// thrown error messages in production builds ("An error occurred in the
+// Server Components render…"), so a throw can never carry a user-facing
+// validation message to the client in prod.
+export type IntakeResult = { error: string | null };
+
+export async function createIntakeBatch(formData: FormData): Promise<IntakeResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
   const supplierId = String(formData.get("supplier_id") ?? "");
   const farmerId = String(formData.get("farmer_id") ?? "");
   const farmId = String(formData.get("farm_id") ?? "");
   const grossWeightKg = Number(formData.get("gross_weight_kg"));
 
-  if (!supplierId || !farmerId || !farmId) {
-    throw new Error("Supplier, farmer, and farm are required");
+  if (!supplierId || !farmerId) {
+    return { error: "Supplier and farmer are required" };
+  }
+  if (!farmId) {
+    return {
+      error:
+        "This farmer has no farm/block on file, so the delivery can't be traced to a farm. Add a farm to the farmer on the Farmers page first.",
+    };
   }
   if (!Number.isFinite(grossWeightKg) || grossWeightKg <= 0) {
-    throw new Error("Gross weight must be a positive number");
+    return { error: "Gross weight must be a positive number" };
   }
 
   const supabase = await createClient();
@@ -38,6 +50,7 @@ export async function createIntakeBatch(formData: FormData) {
     created_by: ctx.userId,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/receiving");
+  return { error: null };
 }

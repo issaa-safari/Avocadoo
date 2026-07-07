@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/org-context";
 
@@ -79,9 +78,22 @@ async function computePreview(runId: string, qtyRejectedKg: number): Promise<Rec
   };
 }
 
-export async function previewClose(runId: string, qtyRejectedKg: number) {
-  return computePreview(runId, qtyRejectedKg);
+// The exported actions RETURN error strings instead of throwing — thrown
+// server-action error messages are redacted in production builds, so they
+// can never carry a user-facing validation message to the client in prod.
+export type PreviewCloseResult =
+  | { error: string; preview: null }
+  | { error: null; preview: ReconciliationPreview };
+
+export async function previewClose(runId: string, qtyRejectedKg: number): Promise<PreviewCloseResult> {
+  try {
+    return { error: null, preview: await computePreview(runId, qtyRejectedKg) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to calculate reconciliation", preview: null };
+  }
 }
+
+export type ConfirmCloseResult = { error: string | null };
 
 export async function confirmClose(
   runId: string,
@@ -92,19 +104,24 @@ export async function confirmClose(
     returnTransportPlate?: string;
     overrideReason?: string;
   },
-) {
+): Promise<ConfirmCloseResult> {
   const ctx = await getOrgContext();
-  if (!ctx) throw new Error("Not authenticated");
+  if (!ctx) return { error: "Not authenticated" };
 
-  const preview = await computePreview(runId, input.qtyRejectedKg);
+  let preview: ReconciliationPreview;
+  try {
+    preview = await computePreview(runId, input.qtyRejectedKg);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to calculate reconciliation" };
+  }
 
   // Re-validate server-side — never trust that the client actually filled in
   // what the preview said was required.
   if (preview.needsReturn && (!input.returnReason?.trim() || !input.returnSignoff?.trim())) {
-    throw new Error("A supplier return record (reason + signoff) is required before this run can close");
+    return { error: "A supplier return record (reason + signoff) is required before this run can close" };
   }
   if (preview.status === "flagged" && !input.overrideReason?.trim()) {
-    throw new Error("A documented override reason is required to close a flagged run");
+    return { error: "A documented override reason is required to close a flagged run" };
   }
 
   const supabase = await createClient();
@@ -114,7 +131,7 @@ export async function confirmClose(
     .select("run_id, intake_id")
     .eq("run_id", runId)
     .single();
-  if (!run) throw new Error("Run not found");
+  if (!run) return { error: "Run not found" };
 
   let returnConfirmationId: string | null = null;
   if (preview.needsReturn) {
@@ -132,7 +149,7 @@ export async function confirmClose(
       })
       .select("return_id")
       .single();
-    if (retError) throw new Error(retError.message);
+    if (retError) return { error: retError.message };
     returnConfirmationId = ret.return_id;
   }
 
@@ -154,7 +171,7 @@ export async function confirmClose(
     rejection_disposition: preview.needsReturn ? "returned_to_supplier" : null,
     return_confirmation_id: returnConfirmationId,
   });
-  if (recError) throw new Error(recError.message);
+  if (recError) return { error: recError.message };
 
   const { error: closeError } = await supabase
     .from("processing_runs")
@@ -166,9 +183,9 @@ export async function confirmClose(
       closed_at: new Date().toISOString(),
     })
     .eq("run_id", runId);
-  if (closeError) throw new Error(closeError.message);
+  if (closeError) return { error: closeError.message };
 
   revalidatePath("/runs");
   revalidatePath(`/runs/${runId}`);
-  redirect(`/runs/${runId}`);
+  return { error: null };
 }
