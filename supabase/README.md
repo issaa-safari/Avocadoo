@@ -81,23 +81,22 @@ End-to-end tested live in a real browser: opened a hand-pack run, tapped boxes, 
 
 # Phase 1 — Epic 2: QC Inspection (QC-001, QC-002)
 
-**Status: written and repo-committed, ⚠ NOT YET APPLIED to the live project.** The Supabase MCP connection lost authorization mid-session (permission-denied on every call) and needs re-authorizing (claude.ai → Settings → Connectors → Supabase → reconnect). Nothing was partially applied — both migrations below are pending in full.
+**Status: applied to the live project and fully verified** (the earlier connection outage was resolved by re-authorizing the connector; both migrations then applied cleanly).
 
 14. `20260704000001_epic2_qc_checks_schema.sql` — `qc_checks`, tied to `run_id` per the wireframe's active-run-aware design. **No insert policy on the table at all**: writes go exclusively through the `log_qc_check()` SECURITY DEFINER RPC (same pattern as `security_audit_log`), because QC-002's AC demands the mandatory-photo rule for hold/reject be enforced *server-side* — a plain insert policy would let any client bypass it via direct PostgREST writes. The RPC inserts the check and its `stage_photos` rows in one transaction, rejects photo-less hold/reject, rejects checks against closed runs or other orgs' runs, and resolves `org_id`/`inspector_id` server-side.
 15. `20260704000002_epic2_stage_photos_storage.sql` — private `stage-photos` Storage bucket. Object paths are `{org_id}/{reference_type}/{reference_id}/{filename}` and the `storage.objects` policies key on the first path segment matching `current_org_id()` — the same tenant-isolation rule applied to files. Select+insert only (evidence is never edited/deleted).
 
 `tests/epic2_qc_rls_isolation_test.sql` covers: approve without photo succeeds, reject without photo throws, reject with photo succeeds and lands the `stage_photos` row, cross-org run rejected, direct table insert blocked by RLS, anon sees zero rows.
 
-## App layer (built, compiles, not yet browser-tested)
+## App layer
 
 - `/qc` — active-run selector (station · farmer chips), defect checklist, approve/hold/reject disposition, photo upload, notes, per-run tally and check history. Submit is disabled client-side when hold/reject has no photo (QC-001 AC), *and* the server action re-checks, *and* the RPC re-checks — three layers.
 - `src/app/(app)/qc/actions.ts` uploads photos to the `stage-photos` bucket under the org's path prefix, then calls `log_qc_check()` with the storage paths.
-- `qc_checks` + `log_qc_check` were **hand-added to `database.types.ts`** in the generated style because the type generator needs the MCP connection — regenerate and diff once the connection is back.
+- `database.types.ts` was regenerated from the live project after applying; the regenerated `qc_checks`/`log_qc_check` entries matched the interim hand-added ones exactly.
 
-## To finish Epic 2 once the Supabase connection is re-authorized
+## Verification performed after apply
 
-1. `apply_migration` for the two migration files above, in order.
-2. `get_advisors` (security) — expect one new acceptable warning for `log_qc_check` being callable by `authenticated`, same class as the existing five.
-3. Regenerate `database.types.ts` and confirm it matches the hand-added entries.
-4. Live two-org isolation check on `qc_checks` + storage paths, fixtures deleted after.
-5. Browser test: approve without photo, reject blocked without photo, reject with real photo upload, tally updates. Clean up after.
+- `get_advisors` (security): the same six known-acceptable warnings plus exactly one new expected one — `log_qc_check` callable by `authenticated`, which is its purpose as the sole write path.
+- Live two-org isolation, fixtures deleted after: Org A logged approve-without-photo (allowed) and reject-with-photo (allowed, `stage_photos` row landed); reject-without-photo blocked by the RPC; Org A blocked from logging against Org B's run ("Run not found" — no existence leak); direct `insert into qc_checks` blocked by RLS (no insert policy exists); Org B saw zero of Org A's checks even filtering by Org A's `org_id`; anon saw zero rows.
+- Browser test with a **real photo upload**: approve without photo logged and tally updated; switching to reject with no photo disabled the submit button with an inline warning; attaching a PNG re-enabled it; the reject logged, the tally and history updated, and the file verifiably landed in the `stage-photos` bucket at the org-prefixed path with its `stage_photos` metadata row linked to the check.
+- Cleanup note: one orphaned 70-byte test PNG remains in the `stage-photos` bucket — storage objects can't be deleted via SQL and the storage policies deliberately grant no delete (evidence immutability), so removing it needs the Dashboard (Storage → stage-photos) or the service_role key. All table/auth fixtures were fully deleted.
